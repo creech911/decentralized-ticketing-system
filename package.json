@@ -1,0 +1,36 @@
+{
+  "name": "decentralized-ticketing-system",
+  "version": "1.0.0",
+  "description": "A decentralized ticketing system using blockchain technology to issue and manage event tickets.",
+  "main": "index.js",
+  "scripts": {
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deployTicketingSystem.js --network rinkeby",
+    "test": "hardhat test",
+    "start": "lite-server"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/creech911/decentralized-ticketing-system.git"
+  },
+  "author": "creech911",
+  "dependencies": {
+    "ethers": "^5.6.7",
+    "web3": "^1.7.3",
+    "hardhat": "^2.9.9",
+    "@nomiclabs/hardhat-ethers": "^2.0.4",
+    "dotenv": "^16.0.0"
+  },
+  "devDependencies": {
+    "@nomiclabs/hardhat-waffle": "^2.0.1",
+    "chai": "^4.3.4",
+    "lite-server": "^2.6.1"
+  },
+  "engines": {
+    "node": ">=14.17.0"
+  },
+  "bugs": {
+    "url": "https://github.com/creech911/decentralized-ticketing-system/issues"
+  },
+  "homepage": "https://github.com/creech911/decentralized-ticketing-system#readme"
+}
