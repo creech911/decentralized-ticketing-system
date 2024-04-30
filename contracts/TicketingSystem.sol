@@ -1,7 +1,9 @@
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/Strings.sol"; // Ensure you have this import for Strings.toString usage
 
 contract TicketingSystem is ERC721URIStorage, Ownable {
     uint256 public nextEventId;
@@ -27,8 +29,8 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     constructor() ERC721("DecentralizedTicket", "DTC") {}
 
     function createEvent(string memory name, uint256 ticketPrice, uint256 totalTickets) public onlyOwner {
-        require(ticketPrice > 0, "Ticket price must be greater than 0");
-        require(totalTickets > 0, "Total tickets must be greater than 0");
+        require(ticketPrice > 0, "Error: Ticket price must be greater than 0");
+        require(totalTickets > 0, "Error: Total tickets must be greater than 0");
         uint256 eventId = nextEventId++;
         events[eventId] = Event({
             id: eventId,
@@ -42,10 +44,10 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     }
 
     function buyTicket(uint256 eventId) public payable {
-        require(events[eventId].id == eventId, "Event does not exist");
+        require(events[eventId].id == eventId, "Error: Event does not exist");
         Event storage event_ = events[eventId];
-        require(msg.value == event_.ticketPrice, "Incorrect ticket price");
-        require(event_.ticketsSold < event_.totalTickets, "Event is sold out");
+        require(msg.value == event_.ticketPrice, "Error: Incorrect ticket price");
+        require(event_.ticketsSold < event_.totalTickets, "Error: Event is sold out");
 
         uint256 ticketId = nextTicketId++;
         _safeMint(msg.sender, ticketId);
@@ -58,14 +60,14 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     }
 
     function transferTicket(uint256 ticketId, address to) public {
-        require(_exists(ticketId), "Ticket does not exist");
-        require(ownerOf(ticketId) == msg.sender, "You must own the ticket to transfer it");
-        require(to != address(0), "Cannot transfer to the zero address");
+        require(_exists(ticketId), "Error: Ticket does not exist");
+        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to transfer it");
+        require(to != address(0), "Error: Cannot transfer to the zero address");
 
         safeTransferFrom(msg.sender, to, ticketId);
 
         uint256 eventId = ticketToEvent[ticketId];
-        require(events[eventId].id == eventId, "Event does not exist");
+        require(events[eventId].id == eventId, "Error: Event does not exist");
 
         ownedTicketsCount[msg.sender][eventId]--;
         ownedTicketsCount[to][eventId]++;
@@ -74,15 +76,20 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     }
 
     function returnTicket(uint256 ticketId) public {
-        require(_exists(ticketId), "Ticket does not exist");
-        require(ownerOf(ticketId) == msg.sender, "You must own the ticket to return it");
+        require(_exists(ticketId), "Error: Ticket does not exist");
+        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to return it");
         uint256 eventId = ticketToEvent[ticketId];
+        require(events[eventId].id == eventId, "Error: Event does not exist");
+
         Event storage event_ = events[eventId];
 
         _burn(ticketId);
         ownedTicketsCount[msg.sender][eventId]--;
         event_.ticketsSold--;
-        payable(msg.sender).transfer(event_.ticketPrice);
+
+        // It's better to ensure this operation is safe from re-entrancy attacks
+        (bool sent, ) = payable(msg.sender).call{value: event_.ticketPrice}("");
+        require(sent, "Error: Failed to refund ticket price");
 
         emit TicketReturned(eventId, ticketId, msg.sender);
     }
