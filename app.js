@@ -1,9 +1,12 @@
 import { ethers } from 'ethers';
+
 const CONTRACT_ADDRESS = process.env.CONTRACT_ADDRESS;
 const CONTRACT_ABI = JSON.parse(process.env.CONTRACT_ABI);
+
 let provider;
 let signer;
 let ticketContract;
+
 async function init() {
   if (window.ethereum) {
     try {
@@ -12,17 +15,20 @@ async function init() {
       signer = provider.getSigner();
       ticketContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
     } catch (error) {
-      console.error('Error connecting to Metamask:', error);
+      console.error('Error connecting to MetaMask:', error);
+      showErrorToUser(error);
     }
   } else {
     console.error('Ethereum object not found! Install MetaMask or another wallet.');
   }
 }
+
 async function buyTicket(ticketId, value) {
   try {
     const transactionResponse = await ticketContract.buyTicket(ticketId, {
       value: ethers.utils.parseEther(value.toString()),
     });
+    
     await transactionResponse.wait();
     updateUIAfterBuy();
   } catch (error) {
@@ -30,6 +36,7 @@ async function buyTicket(ticketId, value) {
     showErrorToUser(error);
   }
 }
+
 async function transferTicket(ticketId, toAddress) {
   try {
     const transactionResponse = await ticketContract.transferTicket(ticketId, toAddress);
@@ -40,14 +47,18 @@ async function transferTicket(ticketId, toAddress) {
     showErrorToUser(error);
   }
 }
+
 function updateUIAfterBuy() {
   console.log('Ticket bought successfully. Update your UI here.');
 }
+
 function updateUIAfterTransfer() {
   console.log('Ticket transferred successfully. Update your UI here.');
 }
+
 function showErrorToUser(error) {
-  console.error('An error occurred:', error.message);
-  alert('An error occurred. Please check the console for details.');
+  console.error('An error occurred:', error);
+  alert(`An error occurred. Please check the console for details.\nError: ${error.message || error}`);
 }
+
 init().then(() => console.log('Initialized and connected to Ethereum blockchain.'));
