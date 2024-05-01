@@ -17,8 +17,7 @@ async function buyTicket(ticketId, value) {
         displaySuccessMessage('Ticket purchased successfully!');
         updateUIAfterPurchase(ticketId);
     } catch (error) {
-        console.error(error);
-        displayErrorMessage('Failed to purchase the ticket. Please try again.');
+        handleEthersError(error);
     }
 }
 
@@ -29,8 +28,21 @@ async function transferTicket(ticketId, toAddress) {
         displaySuccessMessage('Ticket transferred successfully!');
         updateUIAfterTransfer(ticketId, toAddress);
     } catch (error) {
+        handleEthersError(error);
+    }
+}
+
+function handleEthersError(error) {
+    if (error.code === 'NETWORK_ERROR') {
+        displayErrorMessage('A network error occurred, please check your connection.');
+    } else if (error.code === 'INSUFFICIENT_FUNDS') {
+        displayErrorMessage('Insufficient funds for transaction.');
+    } else if (error.code === 'CALL_EXCEPTION') {
+        displayErrorMessage('A call exception occurred, possibly wrong arguments or gas settings.');
+    } else {
+        // Log the error object for debugging purposes
         console.error(error);
-        displayErrorMessage('Failed to transfer the ticket. Please try again.');
+        displayErrorMessage('Failed to execute the operation. Please try again.');
     }
 }
 
