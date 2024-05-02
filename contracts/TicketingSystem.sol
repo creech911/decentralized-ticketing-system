@@ -3,7 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
-import "@openzeppelin/contracts/utils/Strings.sol"; // Ensure you have this import for Strings.toString usage
+import "@openzeppelin/contracts/utils/Strings.sol";
 
 contract TicketingSystem is ERC721URIStorage, Ownable {
     uint256 public nextEventId;
@@ -17,14 +17,23 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
         uint256 ticketsSold;
     }
 
+    struct ResaleTicket {
+        bool isForSale;
+        uint256 price;
+    }
+
     mapping(uint256 => Event) public events;
     mapping(uint256 => uint256) public ticketToEvent;
     mapping(address => mapping(uint256 => uint256)) private ownedTicketsCount;
+    mapping(uint256 => ResaleTicket) public resaleTickets; // Mapping to track resale tickets
 
     event EventCreated(uint256 indexed eventId, string eventName, uint256 ticketPrice, uint256 totalTickets);
     event TicketPurchased(uint256 indexed eventId, uint256 ticketId, address buyer);
     event TicketTransferred(uint256 indexed ticketId, address from, address to);
     event TicketReturned(uint256 indexed eventId, uint256 ticketId, address owner);
+    // Resale market events
+    event TicketListedForResale(uint256 indexed ticketId, uint256 price);
+    event TicketResalePurchased(uint256 indexed ticketId, uint256 price, address buyer);
 
     constructor() ERC721("DecentralizedTicket", "DTC") {}
 
@@ -59,42 +68,36 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
         emit TicketPurchased(eventId, ticketId, msg.sender);
     }
 
-    function transferTicket(uint256 ticketId, address to) public {
+    function listTicketForResale(uint256 ticketId, uint256 price) public {
         require(_exists(ticketId), "Error: Ticket does not exist");
-        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to transfer it");
-        require(to != address(0), "Error: Cannot transfer to the zero address");
+        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to list it for resale");
+        require(price > 0, "Error: Resale price must be greater than 0");
 
-        safeTransferFrom(msg.sender, to, ticketId);
+        resaleTickets[ticketId] = ResaleTicket({
+            isForSale: true,
+            price: price
+        });
 
-        uint256 eventId = ticketToEvent[ticketId];
-        require(events[eventId].id == eventId, "Error: Event does not exist");
-
-        ownedTicketsCount[msg.sender][eventId]--;
-        ownedTicketsCount[to][eventId]++;
-
-        emit TicketTransferred(ticketId, msg.sender, to);
+        emit TicketListedForResale(ticketId, price);
     }
 
-    function returnTicket(uint256 ticketId) public {
-        require(_exists(ticketId), "Error: Ticket does not exist");
-        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to return it");
-        uint256 eventId = ticketToEvent[ticketId];
-        require(events[eventId].id == eventId, "Error: Event does not exist");
+    function buyResaleTicket(uint256 ticketId) public payable {
+        ResaleTicket storage resaleTicket = resaleTickets[ticketId];
+        require(resaleTicket.isForSale, "Error: Ticket not for resale");
+        require(msg.value == resaleTicket.price, "Error: Incorrect ticket price");
 
-        Event storage event_ = events[eventId];
+        address previousOwner = ownerOf(ticketId);
+        _transfer(previousOwner, msg.sender, ticketId);
+        
+        (bool sent, ) = payable(previousOwner).call{value: msg.value}("");
+        require(sent, "Error: Failed to send Ether to the previous owner");
 
-        _burn(ticketId);
-        ownedTicketsCount[msg.sender][eventId]--;
-        event_.ticketsSold--;
+        resaleTicket.isForSale = false; // Marks the ticket as sold/not available for resale anymore
 
-        // It's better to ensure this operation is safe from re-entrancy attacks
-        (bool sent, ) = payable(msg.sender).call{value: event_.ticketPrice}("");
-        require(sent, "Error: Failed to refund ticket price");
+        ownedTicketsCount[previousOwner][ticketToEvent[ticketId]]--;
+        ownedTicketsCount[msg.sender][ticketToEvent[ticketId]]++;
 
-        emit TicketReturned(eventId, ticketId, msg.sender);
+        emit TicketResalePurchased(ticketId, msg.value, msg.sender);
     }
 
-    function getOwnedTicketsCount(address owner, uint256 eventId) public view returns (uint256) {
-        return ownedTicketsCount[owner][eventId];
-    }
 }
