@@ -1,71 +1,71 @@
 require('dotenv').config();
 const ethers = require('ethers');
 
-const contractAddress = process.env.CONTRACT_ADDRESS;
-const contractABI = JSON.parse(process.env.CONTRACT_ABI);
-const privateKey = process.env.PRIVATE_KEY;
-const providerUrl = process.env.PROVIDER_URL;
+const smartContractAddress = process.env.CONTRACT_ADDRESS;
+const smartContractABI = JSON.parse(process.env.CONTRACT_ABI);
+const userPrivateKey = process.env.PRIVATE_KEY;
+const blockchainProviderURL = process.env.PROVIDER_URL;
 
-const provider = new ethers.providers.JsonRpcProvider(providerUrl);
-const wallet = new ethers.Wallet(privateKey, provider);
-const ticketContract = new ethers.Contract(contractAddress, contractABI, wallet);
+const blockchainProvider = new ethers.providers.JsonRpcProvider(blockchainProviderURL);
+const userWallet = new ethers.Wallet(userPrivateKey, blockchainProvider);
+const ticketingContract = new ethers.Contract(smartContractAddress, smartContractABI, userWallet);
 
-async function buyTicket(ticketId, value) {
+async function purchaseTicket(ticketId, paymentAmount) {
     try {
-        const tx = await ticketContract.buyTicket(ticketId, { value });
-        await tx.wait();
-        displaySuccessMessage('Ticket purchased successfully!');
-        updateUIAfterPurchase(ticketId);
+        const transaction = await ticketingContract.buyTicket(ticketId, { value: paymentAmount });
+        await transaction.wait();
+        showSuccessMessage('Ticket purchased successfully!');
+        refreshUIAfterPurchase(ticketId);
     } catch (error) {
-        handleEthersError(error);
+        processEthersError(error);
     }
 }
 
-async function transferTicket(ticketId, toAddress) {
+async function sendTicket(ticketId, recipientAddress) {
     try {
-        const tx = await ticketContract.transferTicket(toAddress, ticketId);
-        await tx.wait();
-        displaySuccessMessage('Ticket transferred successfully!');
-        updateUIAfterTransfer(ticketId, toAddress);
+        const transaction = await ticketingContract.transferTicket(recipientAddress, ticketId);
+        await transaction.wait();
+        showSuccessMessage('Ticket transferred successfully!');
+        refreshUIAfterTransfer(ticketId, recipientAddress);
     } catch (error) {
-        handleEthersError(error);
+        processEthersError(error);
     }
 }
 
-function handleEthersError(error) {
+function processEthersError(error) {
     if (error.code === 'NETWORK_ERROR') {
-        displayErrorMessage('A network error occurred, please check your connection.');
+        showError('A network error occurred, please check your connection.');
     } else if (error.code === 'INSUFFICIENT_FUNDS') {
-        displayErrorMessage('Insufficient funds for transaction.');
+        showError('Insufficient funds for transaction.');
     } else if (error.code === 'CALL_EXCEPTION') {
-        displayErrorMessage('A call exception occurred, possibly wrong arguments or gas settings.');
+        showError('A call exception occurred, possibly wrong arguments or gas settings.');
     } else {
         // Log the error object for debugging purposes
         console.error(error);
-        displayErrorMessage('Failed to execute the operation. Please try again.');
+        showError('Failed to execute the operation. Please try again.');
     }
 }
 
-function updateUIAfterPurchase(ticketId) {
-    console.log(`UI updated for purchased ticket ID: ${ticketId}`);
+function refreshUIAfterPurchase(ticketId) {
+    console.log(`UI refreshed for purchased ticket ID: ${ticketId}`);
 }
 
-function updateUIAfterTransfer(ticketId, toAddress) {
-    console.log(`UI updated for transferred ticket ID: ${ticketId} to address: ${toAddress}`);
+function refreshUIAfterTransfer(ticketId, recipientAddress) {
+    console.log(`UI refreshed for transferred ticket ID: ${ticketId} to address: ${recipientAddress}`);
 }
 
-function displaySuccessMessage(message) {
+function showSuccessMessage(message) {
     console.log(`Success: ${message}`);
 }
 
-function displayErrorMessage(message) {
+function showError(message) {
     console.log(`Error: ${message}`);
 }
 
-ticketContract.on('TicketPurchased', (buyer, ticketId) => {
+ticketingContract.on('TicketPurchased', (buyer, ticketId) => {
     console.log(`New ticket purchased by ${buyer} with ID: ${ticketId}`);
 });
 
-ticketContract.on('TicketTransferred', (from, to, ticketId) => {
-    console.log(`Ticket ID: ${ticketId} transferred from ${from} to ${to}`);
+ticketingContract.on('TicketTransferred', (sender, receiver, ticketId) => {
+    console.log(`Ticket ID: ${ticketId} transferred from ${sender} to ${receiver}`);
 });
