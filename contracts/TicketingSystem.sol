@@ -82,8 +82,8 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     }
 
     function buyResaleTicket(uint256 ticketId) public payable {
+        require(resaleTickets[ticketId].isForSale, "Error: Ticket not for resale");
         ResaleTicket storage resaleTicket = resaleTickets[ticketId];
-        require(resaleTicket.isForSale, "Error: Ticket not for resale");
         require(msg.value == resaleTicket.price, "Error: Incorrect ticket price");
 
         address previousOwner = ownerOf(ticketId);
@@ -96,8 +96,7 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
 
         ownedTicketsCount[previousOwner][ticketToEvent[ticketId]]--;
         ownedTicketsCount[msg.sender][ticketToEvent[ticketId]]++;
-
+        
         emit TicketResalePurchased(ticketId, msg.value, msg.sender);
     }
-
 }
