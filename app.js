@@ -14,6 +14,7 @@ async function init() {
       provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = provider.getSigner();
       ticketContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      console.log('Initialized and connected to Ethereum blockchain.');
     } catch (error) {
       console.error('Error connecting to MetaMask:', error);
       showErrorToUser(error);
@@ -61,4 +62,4 @@ function showErrorToUser(error) {
   alert(`An error occurred. Please check the console for details.\nError: ${error.message || error}`);
 }
 
-init().then(() => console.log('Initialized and connected to Ethereum blockchain.'));
+init();
