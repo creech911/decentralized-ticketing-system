@@ -11,9 +11,12 @@ async function init() {
   if (window.ethereum) {
     try {
       await window.ethereum.request({ method: 'eth_requestAccounts' });
+      
       provider = new ethers.providers.Web3Provider(window.ethereum);
       signer = provider.getSigner();
+      
       ticketContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      
       console.log('Initialized and connected to Ethereum blockchain.');
     } catch (error) {
       console.error('Error connecting to MetaMask:', error);
@@ -31,6 +34,7 @@ async function buyTicket(ticketId, value) {
     });
     
     await transactionResponse.wait();
+    
     updateUIAfterBuy();
   } catch (error) {
     console.error('Error buying a ticket:', error);
@@ -41,7 +45,9 @@ async function buyTicket(ticketId, value) {
 async function transferTicket(ticketId, toAddress) {
   try {
     const transactionResponse = await ticketContract.transferTicket(ticketId, toAddress);
+    
     await transactionResponse.wait();
+    
     updateUIAfterTransfer();
   } catch (error) {
     console.error('Error transferring ticket:', error);
