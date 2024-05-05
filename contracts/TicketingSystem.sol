@@ -4,8 +4,9 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract TicketingSystem is ERC721URIStorage, Ownable {
+contract TicketingSystem is ERC721URIStorage, Ownable, ReentrancyGuard {
     uint256 public nextEventId;
     uint256 public nextTicketId;
 
@@ -15,17 +16,19 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
         uint256 ticketPrice;
         uint256 totalTickets;
         uint256 ticketsSold;
+        bool isCancelled;
     }
 
     struct ResaleTicket {
         bool isForSale;
         uint256 price;
+        bool isCancelled;
     }
 
     mapping(uint256 => Event) public events;
     mapping(uint256 => uint256) public ticketToEvent;
     mapping(address => mapping(uint256 => uint256)) private ownedTicketsCount;
-    mapping(uint256 => ResaleTicket) public resaleTickets; // Mapping to track resale tickets
+    mapping(uint256 => ResaleTicket) public resaleTickets;
 
     event EventCreated(uint256 indexed eventId, string eventName, uint256 ticketPrice, uint256 totalTickets);
     event TicketPurchased(uint256 indexed eventId, uint256 ticketId, address buyer);
@@ -34,6 +37,9 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
     // Resale market events
     event TicketListedForResale(uint256 indexed ticketId, uint256 price);
     event TicketResalePurchased(uint256 indexed ticketId, uint256 price, address buyer);
+    // Cancellation events
+    event EventCancelled(uint256 indexed eventId);
+    event TicketResaleCancelled(uint256 indexed ticketId);
 
     constructor() ERC721("DecentralizedTicket", "DTC") {}
 
@@ -46,7 +52,8 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
             name: name,
             ticketPrice: ticketPrice,
             totalTickets: totalTickets,
-            ticketsSold: 0
+            ticketsSold: 0,
+            isCancelled: false
         });
 
         emit EventCreated(eventId, name, ticketPrice, totalTickets);
@@ -54,6 +61,7 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
 
     function buyTicket(uint256 eventId) public payable {
         require(events[eventId].id == eventId, "Error: Event does not exist");
+        require(!events[eventId].isCancelled, "Error: Event is cancelled");
         Event storage event_ = events[eventId];
         require(msg.value == event_.ticketPrice, "Error: Incorrect ticket price");
         require(event_.ticketsSold < event_.totalTickets, "Error: Event is sold out");
@@ -75,14 +83,16 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
 
         resaleTickets[ticketId] = ResaleTicket({
             isForSale: true,
-            price: price
+            price: price,
+            isCancelled: false
         });
 
         emit TicketListedForResale(ticketId, price);
     }
 
-    function buyResaleTicket(uint256 ticketId) public payable {
+    function buyResaleTicket(uint256 ticketId) public payable nonReentrant {
         require(resaleTickets[ticketId].isForSale, "Error: Ticket not for resale");
+        require(!resaleTickets[ticketId].isCancelled, "Error: This resale ticket is cancelled.");
         ResaleTicket storage resaleTicket = resaleTickets[ticketId];
         require(msg.value == resaleTicket.price, "Error: Incorrect ticket price");
 
@@ -96,7 +106,29 @@ contract TicketingSystem is ERC721URIStorage, Ownable {
 
         ownedTicketsCount[previousOwner][ticketToEvent[ticketId]]--;
         ownedTicketsCount[msg.sender][ticketToEvent[ticketId]]++;
-        
+
         emit TicketResalePurchased(ticketId, msg.value, msg.sender);
+    }
+
+    // Cancelling an event refunds any sold tickets.
+    function cancelEvent(uint256 eventId) public onlyOwner {
+        require(events[eventId].id == eventId, "Error: Event does not exist");
+        Event storage event_ = events[eventId];
+        event_.isCancelled = true;
+
+        emit EventCancelled(eventId);
+    }
+
+    // Enable ticket holders to cancel their resale listings.
+    function cancelResaleListing(uint256 ticketId) public {
+        require(_exists(ticketId), "Error: Ticket does not exist");
+        require(ownerOf(ticketId) == msg.sender, "Error: You must own the ticket to cancel the listing");
+        ResaleTicket storage resaleTicket = resaleTickets[ticketId];
+        require(resaleTicket.isForSale, "Error: Ticket is not listed for resale");
+
+        resaleTicket.isForSale = false;
+        resaleTicket.isCancelled = true;
+
+        emit TicketResaleCancelled(ticketId);
     }
 }
