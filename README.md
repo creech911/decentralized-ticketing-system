@@ -25,7 +25,7 @@ This repository contains a JavaScript application designed to facilitate interac
 1. Clone the repository:
 
    ```sh
-   git clone https://github.com/your-username/decentralized-ticketing-system.git
+   git clone https://github.com/creech911/decentralized-ticketing-system.git
    cd decentralized-ticketing-system
    ```
 
